@@ -31,7 +31,8 @@ struct ContentView: View {
 
                     Button("iCloud 저장") {
                         if let image = viewModel.selectedImage {
-                            viewModel.saveImageToICloud(image: image)
+                            let fileName = "image_\(UUID().uuidString).jpg"
+                            viewModel.saveImageToICloud(image: image, fileName: fileName)
                         }
                     }
                     .padding()
