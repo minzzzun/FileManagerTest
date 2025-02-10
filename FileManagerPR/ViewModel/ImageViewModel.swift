@@ -69,28 +69,34 @@ class ImageViewModel: ObservableObject {
     
     func saveImageToICloud(image: UIImage, fileName: String) {
         guard let data = image.jpegData(compressionQuality: 1.0),
-              let iCloudURL = getICloudDirectory()?.appendingPathComponent(fileName) else {
+              let iCloudURL = getICloudDirectory()?.appendingPathComponent(fileName),
+              let tempURL = getLocalDirectory()?.appendingPathComponent(fileName) else {
             print("❌ iCloud Drive 접근 불가")
             return
         }
         
         do {
-            try data.write(to: iCloudURL)
+            // 📌 1️⃣ 먼저 로컬에 저장
+            try data.write(to: tempURL)
             
-            // 파일 앱에서 접근 가능하도록 설정
-            try (iCloudURL as NSURL).setResourceValue(URLFileProtection.none, forKey: .fileProtectionKey)
-            try (iCloudURL as NSURL).setResourceValue(false, forKey: .isExcludedFromBackupKey)
-            
+            // 📌 2️⃣ iCloud로 이동 (이미 존재하면 덮어쓰기)
+            if FileManager.default.fileExists(atPath: iCloudURL.path) {
+                try FileManager.default.replaceItemAt(iCloudURL, withItemAt: tempURL)
+            } else {
+                try FileManager.default.copyItem(at: tempURL, to: iCloudURL)
+            }
             
             print("✅ iCloud Drive에 저장됨: \(iCloudURL.path)")
             
+            // 📌 3️⃣ 파일 보호 속성 해제 (파일 접근 가능하도록 설정)
+            try (iCloudURL as NSURL).setResourceValue(URLFileProtection.none, forKey: .fileProtectionKey)
+            try (iCloudURL as NSURL).setResourceValue(false, forKey: .isHiddenKey) // 숨김 해제
+            
             DispatchQueue.main.async {
-                self.loadImagesFromICloud()
+                self.loadImagesFromICloud() // ✅ 저장 후 자동으로 목록 새로고침
             }
         } catch {
             print("❌ iCloud 저장 실패: \(error.localizedDescription)")
-            // iCloud 저장 실패시 로컬에 백업
-            saveImageLocally(image: image, fileName: fileName)
         }
     }
     
